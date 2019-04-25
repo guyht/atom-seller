@@ -9,12 +9,13 @@ from os import system
 polo = poloniex.Poloniex(private.API_KEY,private.API_SECRET)
 
 # Configuration
-target_volume_day = 10 # Target amount of atoms that the script should sell per day
+target_volume_day = 100 # Target amount of atoms that the script should sell per day
 min_atom_price = 3 # Minimum atom price in USD that the script should sell at. Script will not sell below this
 
 
 
-min_order = .25 #TODO make this based on min btc order size of .0001
+min_order_polo = .00015 #TODO make this based on min btc order size of .0001
+min_order = 0.0
 
 
 token = 'ATOM'
@@ -31,7 +32,7 @@ btc_balance = 0.0
 
 # Update the btc and atom prices
 def update_prices():
-    global btc_price, atom_price
+    global btc_price, atom_price, min_order
 
     btc_usd_book = polo.returnOrderBook('USDC_BTC', depth=3)
     btc_price = float(btc_usd_book['bids'][0][0])
@@ -42,6 +43,9 @@ def update_prices():
     atom_price = float(btc_atom_book['bids'][0][0])
 
     atom_prices.append(btc_price * atom_price)
+
+    # Calc min order based on BTC price
+    min_order = min_order_polo / atom_price
    
 
 # Work out rate for orders
@@ -59,6 +63,13 @@ def update_balances():
     balances = polo.returnBalances()
     btc_balance = balances['BTC']
     atom_balance = balances['ATOM']
+
+
+def get_trades():
+
+    trades = polo.returnTradeHistory(currency_pair)
+
+    return trades
 
 
 # Get average price of currency pair
@@ -96,12 +107,24 @@ def cli_update():
     print(f" ")
     print(f"Current prices: BTC {round(btc_price, 2)}  ATOM {round(atom_price * btc_price, 2)}")
     print(f" ")
-    print(f"Target of {target_volume_day} atoms per day, with minimum price of {min_atom_price}, and sell interval of {order_velocity()}")
+    print(f"Target of {target_volume_day} atoms per day, with minimum price of {min_atom_price}, and sell interval of {round(order_velocity(),2)} and min order of {round(min_order,2)}")
     print(f" ")
-    print(f"Current BTC balance is {round(btc_balance,2)} (${round(btc_balance * btc_price,2)}), and ATOM balance is {round(atom_balance,2)} (${round(atom_balance * atom_price * btc_price,2)})")
+    print(f"Current BTC balance is {round(btc_balance,4)} (${round(btc_balance * btc_price,2)}), and ATOM balance is {round(atom_balance,2)} (${round(atom_balance * atom_price * btc_price,2)})")
     print(f" ")
     print(f"Number of orders executed: {num_orders}")
     print(f"Total atoms sold: {amount_sold}")
+    print(f" ")
+    print(f" ")
+    print(f"Recent Trades")
+    print(f" ")
+
+    i = 0
+    for trade in get_trades():
+        print(f"{trade['date']} - Sold {round(trade['amount'],4)} atoms for ${round(trade['total'] * btc_price,4)}")
+        i += 1
+
+        if i == 5:
+            break
     
 
 def run_updates():
